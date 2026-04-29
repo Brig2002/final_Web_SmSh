@@ -54,7 +54,7 @@ export default function Alerts() {
         </h3>
 
         <div className="space-y-4">
-          <AnimatePresence mode="popLayout text-sm">
+          <AnimatePresence mode="popLayout">
             {currentAlerts.map((alert) => (
               <motion.div
                 layout
