@@ -10,25 +10,40 @@ export interface User {
 
 export type StockStatus = 'NORMAL' | 'LOW' | 'CRITICAL' | 'EXPIRED';
 
+export interface MedicineBatch {
+  batchId: string;
+  quantity: number;
+  expiryDate: string;
+  manufacturingDate?: string;
+}
+
 export interface Medicine {
   id: string;
   name: string;
   sku: string;
   description: string;
-  quantity: number;
+  batches: MedicineBatch[];
   capacity: number;
-  expiryDate: string;
   shelfId: string;
   status: StockStatus;
 }
 
 export type PrescriptionStatus = 'PENDING' | 'PROCESSING' | 'READY' | 'FULFILLED' | 'REVIEW';
 
+export interface MedicineAllocation {
+  medicineId: string;
+  medicineName: string;
+  quantity: number;
+}
+
 export interface Prescription {
   id: string;
   patientName: string;
   medicineId: string;
   medicineName: string;
+  medicineIds?: string[];
+  medicineNames?: string[];
+  medicineAllocations?: MedicineAllocation[];
   quantity: number;
   date: string;
   time: string;

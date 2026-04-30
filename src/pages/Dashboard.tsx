@@ -23,7 +23,9 @@ import {
   Cell
 } from 'recharts';
 import { cn } from '../lib/utils';
+import { getTotalQuantity } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
+import ExpiryReport from '../components/ExpiryReport';
 
 const CHART_DATA = [
   { name: 'Mon', value: 400 },
@@ -38,6 +40,19 @@ const CHART_DATA = [
 export default function Dashboard() {
   const { user, prescriptions, medicines, alerts } = useApp();
   const navigate = useNavigate();
+
+  const getPrescriptionMedicineAllocations = (prescription: typeof prescriptions[number]) => {
+    if (prescription.medicineAllocations?.length) return prescription.medicineAllocations;
+    return [{ medicineId: prescription.medicineId, medicineName: prescription.medicineName, quantity: prescription.quantity }];
+  };
+
+  const getPrescriptionMedicineSummary = (prescription: typeof prescriptions[number]) => {
+    return getPrescriptionMedicineAllocations(prescription).map(allocation => `${allocation.medicineName} × ${allocation.quantity}`);
+  };
+
+  const getPrescriptionTotalQuantity = (prescription: typeof prescriptions[number]) => {
+    return getPrescriptionMedicineAllocations(prescription).reduce((sum, allocation) => sum + allocation.quantity, 0);
+  };
 
   const doctorContent = () => {
     const todayPrescriptions = prescriptions.filter(p => p.date === '2023-10-24').length;
@@ -133,8 +148,16 @@ export default function Dashboard() {
                       </div>
                     </td>
                     <td className="px-8 py-5">
-                      <p className="font-bold text-slate-900">{p.medicineName}</p>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">SKU: {medicines.find(m => m.id === p.medicineId)?.sku}</p>
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {getPrescriptionMedicineSummary(p).map((medicineSummary) => (
+                          <span key={medicineSummary} className="inline-flex items-center px-2.5 py-1 rounded-full bg-primary/10 text-primary text-[10px] font-bold uppercase tracking-wider">
+                            {medicineSummary}
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">
+                        {getPrescriptionMedicineAllocations(p).length} medicine{getPrescriptionMedicineAllocations(p).length === 1 ? '' : 's'}
+                      </p>
                     </td>
                     <td className="px-8 py-5 text-slate-500 font-medium">Today, {p.time}</td>
                     <td className="px-8 py-5">
@@ -149,8 +172,12 @@ export default function Dashboard() {
                       </span>
                     </td>
                     <td className="px-8 py-5 text-right">
-                      <button className="text-slate-300 hover:text-primary transition-opacity opacity-0 group-hover:opacity-100">
-                        <ArrowRight size={20} />
+                      <button
+                        onClick={() => navigate('/prescriptions')}
+                        className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-slate-600 font-bold text-xs hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <ArrowRight size={14} />
+                        Edit
                       </button>
                     </td>
                   </tr>
@@ -240,14 +267,14 @@ export default function Dashboard() {
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">SKU: {med.sku}</p>
                     </div>
                     <span className={cn("text-xs font-bold", med.status === 'NORMAL' ? 'text-slate-900' : 'text-error')}>
-                      {med.quantity} Units
+                      {getTotalQuantity(med.batches)} Units
                     </span>
                   </div>
-                  <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                    <div 
-                      className={cn("h-full rounded-full transition-all duration-1000", med.status === 'NORMAL' ? 'bg-primary' : 'bg-error')}
-                      style={{ width: `${(med.quantity / med.capacity) * 100}%` }}
-                    />
+                    <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                      <div 
+                        className={cn("h-full rounded-full transition-all duration-1000", med.status === 'NORMAL' ? 'bg-primary' : 'bg-error')}
+                        style={{ width: `${(getTotalQuantity(med.batches) / med.capacity) * 100}%` }}
+                      />
                   </div>
                 </div>
               ))}
@@ -260,6 +287,11 @@ export default function Dashboard() {
               <ArrowRight size={16} />
             </button>
           </div>
+        </div>
+
+        <div className="bg-white rounded-3xl p-8 border border-slate-50 shadow-sm">
+          <h3 className="font-display text-xl font-bold mb-6">Batch Expiry Report</h3>
+          <ExpiryReport medicines={medicines} />
         </div>
       </div>
     );

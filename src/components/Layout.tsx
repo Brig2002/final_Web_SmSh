@@ -49,13 +49,15 @@ export default function Layout() {
             </div>
           </div>
 
-          <button 
-            onClick={() => navigate('/prescriptions')}
-            className="w-full flex items-center justify-center gap-2 bg-primary py-3 rounded-xl text-white font-bold text-sm shadow-md shadow-primary/10 hover:opacity-90 transition-opacity mb-8"
-          >
-            <Plus size={18} />
-            New Prescription
-          </button>
+          {user.role === 'ADMIN' && (
+            <button 
+              onClick={() => navigate('/prescriptions')}
+              className="w-full flex items-center justify-center gap-2 bg-primary py-3 rounded-xl text-white font-bold text-sm shadow-md shadow-primary/10 hover:opacity-90 transition-opacity mb-8"
+            >
+              <Plus size={18} />
+              New Prescription
+            </button>
+          )}
 
           <nav className="space-y-1">
             {navItems.map((item) => (
