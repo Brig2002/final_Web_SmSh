@@ -25,10 +25,13 @@ export default function MedicineDetailsModal({ medicine, onClose }: MedicineDeta
   const sortedBatches = [...medicine.batches].sort((a, b) => 
     new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()
   );
+  const earliestExpiry = sortedBatches[0]?.expiryDate || null;
+  const earliestDaysUntil = earliestExpiry ? getDaysUntilExpiry(earliestExpiry) : null;
+  const totalBatches = sortedBatches.length;
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full mx-4 max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="sticky top-0 flex items-center justify-between p-8 border-b border-slate-200 bg-white rounded-t-3xl">
           <div>
@@ -56,6 +59,56 @@ export default function MedicineDetailsModal({ medicine, onClose }: MedicineDeta
               <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Location</p>
               <p className="font-display text-2xl font-bold text-slate-900 mt-2">{medicine.shelfId}</p>
               <p className="text-xs text-slate-500 mt-1">Shelf ID</p>
+            </div>
+          </div>
+
+          {/* Batch Snapshot */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Batch Count</p>
+              <p className="font-display text-3xl font-bold text-slate-900 mt-2">{totalBatches}</p>
+            </div>
+            <div className={cn(
+              "p-4 rounded-xl border",
+              earliestExpiry && isExpired(earliestExpiry) ? "border-red-200 bg-red-50" :
+              earliestExpiry && isExpiryWarning(earliestExpiry, 14) ? "border-amber-200 bg-amber-50" :
+              "border-secondary/20 bg-secondary/5"
+            )}>
+              <p className={cn(
+                "text-xs font-bold uppercase tracking-widest",
+                earliestExpiry && isExpired(earliestExpiry) ? "text-red-600" :
+                earliestExpiry && isExpiryWarning(earliestExpiry, 14) ? "text-amber-700" :
+                "text-secondary"
+              )}>
+                Earliest Expiry
+              </p>
+              <p className="font-display text-2xl font-bold text-slate-900 mt-2">
+                {earliestExpiry ? formatExpiryDate(earliestExpiry) : 'No batches'}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">
+                {earliestDaysUntil !== null
+                  ? earliestDaysUntil < 0
+                    ? `${Math.abs(earliestDaysUntil)} days ago`
+                    : `${earliestDaysUntil} days left`
+                  : 'No expiry data'}
+              </p>
+            </div>
+            <div className={cn(
+              "p-4 rounded-xl border",
+              medicine.status === 'EXPIRED' ? "border-red-200 bg-red-50" :
+              medicine.status === 'LOW' ? "border-amber-200 bg-amber-50" :
+              "border-secondary/20 bg-secondary/5"
+            )}>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Status</p>
+              <p className={cn(
+                "font-display text-2xl font-bold mt-2",
+                medicine.status === 'EXPIRED' ? "text-red-700" :
+                medicine.status === 'LOW' ? "text-amber-700" :
+                "text-secondary"
+              )}>
+                {medicine.status}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">Batch-level expiry state included</p>
             </div>
           </div>
 
@@ -93,63 +146,126 @@ export default function MedicineDetailsModal({ medicine, onClose }: MedicineDeta
                 <p className="text-slate-500">No batches in inventory</p>
               </div>
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200">
-                      <th className="text-left p-4 font-bold text-slate-600 uppercase tracking-widest text-xs">Batch ID</th>
-                      <th className="text-left p-4 font-bold text-slate-600 uppercase tracking-widest text-xs">Quantity</th>
-                      <th className="text-left p-4 font-bold text-slate-600 uppercase tracking-widest text-xs">Expiry Date</th>
-                      <th className="text-left p-4 font-bold text-slate-600 uppercase tracking-widest text-xs">Days Until</th>
-                      <th className="text-left p-4 font-bold text-slate-600 uppercase tracking-widest text-xs">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {sortedBatches.map((batch) => {
-                      const daysUntil = getDaysUntilExpiry(batch.expiryDate);
-                      const expiryStatus = getExpiryStatus(batch.expiryDate);
-                      const isExpiredBatch = isExpired(batch.expiryDate);
-                      const isWarning = isExpiryWarning(batch.expiryDate, 14);
+              <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {sortedBatches.map((batch) => {
+                    const daysUntil = getDaysUntilExpiry(batch.expiryDate);
+                    const expiryStatus = getExpiryStatus(batch.expiryDate);
+                    const isExpiredBatch = isExpired(batch.expiryDate);
+                    const isWarning = isExpiryWarning(batch.expiryDate, 14);
 
-                      return (
-                        <tr
-                          key={batch.batchId}
-                          className={cn(
-                            "border-b border-slate-100",
-                            isExpiredBatch ? "bg-red-50" :
-                            isWarning ? "bg-amber-50" :
-                            "hover:bg-slate-50"
-                          )}
-                        >
-                          <td className="p-4 font-mono text-xs font-bold text-slate-600">{batch.batchId}</td>
-                          <td className="p-4 font-bold text-slate-900">{batch.quantity} units</td>
-                          <td className="p-4 text-slate-700">{formatExpiryDate(batch.expiryDate)}</td>
-                          <td className={cn(
-                            "p-4 font-bold",
-                            isExpiredBatch ? "text-red-600" :
-                            isWarning ? "text-amber-600" :
-                            "text-secondary"
+                    return (
+                      <div
+                        key={batch.batchId}
+                        className={cn(
+                          "rounded-2xl border p-4 shadow-sm",
+                          isExpiredBatch ? "bg-red-50 border-red-200" :
+                          isWarning ? "bg-amber-50 border-amber-200" :
+                          "bg-secondary/5 border-secondary/10"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Batch ID</p>
+                            <p className="mt-1 font-mono text-sm font-bold text-slate-700">{batch.batchId}</p>
+                          </div>
+                          <div className={cn(
+                            "flex items-center gap-2 rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider",
+                            isExpiredBatch ? "bg-red-100 text-red-700" :
+                            isWarning ? "bg-amber-100 text-amber-700" :
+                            "bg-secondary/10 text-secondary"
                           )}>
-                            {daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days`}
-                          </td>
-                          <td className="p-4">
-                            <div className={cn(
-                              "flex items-center gap-2 w-fit px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider",
-                              isExpiredBatch ? "bg-red-100 text-red-700" :
-                              isWarning ? "bg-amber-100 text-amber-700" :
-                              "bg-secondary/10 text-secondary"
+                            {isExpiredBatch && <AlertCircle size={12} />}
+                            {isWarning && !isExpiredBatch && <Clock size={12} />}
+                            {!isExpiredBatch && !isWarning && <CheckCircle2 size={12} />}
+                            {expiryStatus}
+                          </div>
+                        </div>
+
+                        <div className="mt-4 grid grid-cols-3 gap-3 text-sm">
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Units</p>
+                            <p className="mt-1 font-bold text-slate-900">{batch.quantity}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Expiry</p>
+                            <p className="mt-1 font-medium text-slate-700">{formatExpiryDate(batch.expiryDate)}</p>
+                          </div>
+                          <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Remaining</p>
+                            <p className={cn(
+                              "mt-1 font-bold",
+                              isExpiredBatch ? "text-red-700" :
+                              isWarning ? "text-amber-700" :
+                              "text-secondary"
                             )}>
-                              {isExpiredBatch && <AlertCircle size={12} />}
-                              {isWarning && <Clock size={12} />}
-                              {!isExpiredBatch && !isWarning && <CheckCircle2 size={12} />}
-                              {expiryStatus}
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                              {daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days left`}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-slate-200">
+                        <th className="text-left p-4 font-bold text-slate-600 uppercase tracking-widest text-xs">Batch ID</th>
+                        <th className="text-left p-4 font-bold text-slate-600 uppercase tracking-widest text-xs">Quantity</th>
+                        <th className="text-left p-4 font-bold text-slate-600 uppercase tracking-widest text-xs">Expiry Date</th>
+                        <th className="text-left p-4 font-bold text-slate-600 uppercase tracking-widest text-xs">Days Until</th>
+                        <th className="text-left p-4 font-bold text-slate-600 uppercase tracking-widest text-xs">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sortedBatches.map((batch) => {
+                        const daysUntil = getDaysUntilExpiry(batch.expiryDate);
+                        const expiryStatus = getExpiryStatus(batch.expiryDate);
+                        const isExpiredBatch = isExpired(batch.expiryDate);
+                        const isWarning = isExpiryWarning(batch.expiryDate, 14);
+
+                        return (
+                          <tr
+                            key={batch.batchId}
+                            className={cn(
+                              "border-b border-slate-100",
+                              isExpiredBatch ? "bg-red-50" :
+                              isWarning ? "bg-amber-50" :
+                              "hover:bg-slate-50"
+                            )}
+                          >
+                            <td className="p-4 font-mono text-xs font-bold text-slate-600">{batch.batchId}</td>
+                            <td className="p-4 font-bold text-slate-900">{batch.quantity} units</td>
+                            <td className="p-4 text-slate-700">{formatExpiryDate(batch.expiryDate)}</td>
+                            <td className={cn(
+                              "p-4 font-bold",
+                              isExpiredBatch ? "text-red-600" :
+                              isWarning ? "text-amber-600" :
+                              "text-secondary"
+                            )}>
+                              {daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days`}
+                            </td>
+                            <td className="p-4">
+                              <div className={cn(
+                                "flex items-center gap-2 w-fit px-3 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider",
+                                isExpiredBatch ? "bg-red-100 text-red-700" :
+                                isWarning ? "bg-amber-100 text-amber-700" :
+                                "bg-secondary/10 text-secondary"
+                              )}>
+                                {isExpiredBatch && <AlertCircle size={12} />}
+                                {isWarning && <Clock size={12} />}
+                                {!isExpiredBatch && !isWarning && <CheckCircle2 size={12} />}
+                                {expiryStatus}
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             )}
           </div>

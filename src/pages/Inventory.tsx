@@ -4,6 +4,7 @@ import {
   AlertCircle, 
   CheckCircle2, 
   Info, 
+  Clock,
   ChevronRight, 
   Filter,
   Package,
@@ -19,15 +20,14 @@ import {
   formatExpiryDate, 
   getDaysUntilExpiry,
   isExpired,
-  isExpiryWarning
+  isExpiryWarning,
+  getExpiryStatus
 } from '../lib/utils';
 import MedicineDetailsModal from '../components/MedicineDetailsModal';
-import ShelfDetailsModal from '../components/ShelfDetailsModal';
 
 export default function Inventory() {
   const { medicines, user } = useApp();
   const [selectedMedicine, setSelectedMedicine] = useState<string | null>(null);
-  const [selectedShelf, setSelectedShelf] = useState<string | null>(null);
   const [filterType, setFilterType] = useState<'all' | 'expiring' | 'expired'>('all');
   const [sortType, setSortType] = useState<'name' | 'expiry' | 'quantity'>('name');
 
@@ -61,15 +61,17 @@ export default function Inventory() {
     return 0;
   });
 
-  const shelfGroups = sortedMedicines.reduce((groups, medicine) => {
-    if (!groups[medicine.shelfId]) {
-      groups[medicine.shelfId] = [];
+  // Group medicines by shelf
+  const medicinesByShelf = new Map<string, typeof sortedMedicines>();
+  sortedMedicines.forEach(med => {
+    const shelf = med.shelfId;
+    if (!medicinesByShelf.has(shelf)) {
+      medicinesByShelf.set(shelf, []);
     }
-    groups[medicine.shelfId].push(medicine);
-    return groups;
-  }, {} as Record<string, typeof sortedMedicines>);
+    medicinesByShelf.get(shelf)!.push(med);
+  });
 
-  const shelfEntries = Object.entries(shelfGroups).sort(([a], [b]) => a.localeCompare(b));
+  const sortedShelves = Array.from(medicinesByShelf.keys()).sort();
 
   return (
     <div className="space-y-8 animate-in fade-in duration-500">
@@ -86,7 +88,7 @@ export default function Inventory() {
 
       {/* Grid Header & Filters */}
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between pb-2 border-b border-slate-100 mb-6 gap-4">
-        <h3 className="font-display text-xl font-bold text-slate-900">Active Shelf Monitors</h3>
+        <h3 className="font-display text-xl font-bold text-slate-900">Active Shelf Monitors ({sortedShelves.length})</h3>
         <div className="flex flex-wrap items-center gap-3">
           {/* Filter */}
           <div className="flex items-center gap-2">
@@ -118,153 +120,203 @@ export default function Inventory() {
         </div>
       </div>
 
-      {/* Shelves Grid */}
+      {/* Shelves View - Organized by Location */}
       <div className="space-y-8">
         <AnimatePresence mode="popLayout">
-          {shelfEntries.map(([shelfId, shelfMedicines]) => (
-            <motion.section
-              layout
-              key={shelfId}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: 10 }}
-              className="space-y-4"
-            >
-              <button
-                onClick={() => setSelectedShelf(shelfId)}
-                className="w-full flex items-center justify-between p-5 bg-gradient-to-r from-slate-50 to-slate-100 rounded-2xl border-2 border-slate-200 hover:border-primary hover:from-slate-100 hover:to-slate-50 transition-all duration-200 group cursor-pointer"
-              >
-                <div className="flex-1 text-left">
-                  <h4 className="font-display text-2xl font-bold text-slate-900 group-hover:text-primary transition-colors">{shelfId}</h4>
-                  <p className="text-sm text-slate-500 font-medium mt-1">
-                    {shelfMedicines.length} medicine{shelfMedicines.length === 1 ? '' : 's'} stored on this shelf
-                  </p>
-                </div>
-                <div className="flex items-center gap-3 shrink-0">
-                  <span className="rounded-full bg-white px-3 py-1 text-[10px] font-bold uppercase tracking-widest text-slate-500 group-hover:bg-primary group-hover:text-white transition-colors">
-                    View details
-                  </span>
-                  <ChevronRight size={20} className="text-slate-400 group-hover:text-primary transition-colors" />
-                </div>
-              </button>
+          {sortedShelves.map((shelfId) => {
+            const medicinesOnShelf = medicinesByShelf.get(shelfId) || [];
+            
+            // Sort medicines within shelf by expiry status: expired > expiring > normal
+            const sortedMedicinesOnShelf = [...medicinesOnShelf].sort((a, b) => {
+              const aExpiry = getEarliestExpiryDate(a.batches);
+              const bExpiry = getEarliestExpiryDate(b.batches);
+              
+              const aIsExpired = aExpiry ? isExpired(aExpiry) : false;
+              const bIsExpired = bExpiry ? isExpired(bExpiry) : false;
+              const aIsWarning = aExpiry ? isExpiryWarning(aExpiry, 14) : false;
+              const bIsWarning = bExpiry ? isExpiryWarning(bExpiry, 14) : false;
+              
+              // Expired first
+              if (aIsExpired && !bIsExpired) return -1;
+              if (!aIsExpired && bIsExpired) return 1;
+              
+              // Then expiring soon
+              if (aIsWarning && !bIsWarning) return -1;
+              if (!aIsWarning && bIsWarning) return 1;
+              
+              // Then by name
+              return a.name.localeCompare(b.name);
+            });
+            
+            // Count expired and expiring
+            const expiredCount = sortedMedicinesOnShelf.filter(med => {
+              const exp = getEarliestExpiryDate(med.batches);
+              return exp ? isExpired(exp) : false;
+            }).length;
+            
+            const expiringCount = sortedMedicinesOnShelf.filter(med => {
+              const exp = getEarliestExpiryDate(med.batches);
+              return exp && !isExpired(exp) && isExpiryWarning(exp, 14) ? true : false;
+            }).length;
 
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {shelfMedicines.map((med) => {
-            const totalQty = getTotalQuantity(med.batches);
-            const earliestExpiry = getEarliestExpiryDate(med.batches);
-            const isExp = earliestExpiry ? isExpired(earliestExpiry) : false;
-            const isWarning = earliestExpiry ? isExpiryWarning(earliestExpiry, 14) : false;
-            const daysUntilExpiry = earliestExpiry ? getDaysUntilExpiry(earliestExpiry) : null;
+            return (
+              <motion.div
+                layout
+                key={shelfId}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="space-y-4"
+              >
+                {/* Shelf Header */}
+                <div className={cn(
+                  "p-4 rounded-2xl border flex items-center justify-between",
+                  expiredCount > 0 ? "bg-red-50 border-red-200" :
+                  expiringCount > 0 ? "bg-amber-50 border-amber-200" :
+                  "bg-gradient-to-r from-slate-50 to-slate-100 border-slate-200"
+                )}>
+                  <div>
+                    <h3 className={cn(
+                      "font-mono text-sm font-bold uppercase tracking-widest",
+                      expiredCount > 0 ? "text-red-700" :
+                      expiringCount > 0 ? "text-amber-700" :
+                      "text-slate-600"
+                    )}>{shelfId}</h3>
+                    <p className={cn(
+                      "text-xs mt-1",
+                      expiredCount > 0 ? "text-red-600" :
+                      expiringCount > 0 ? "text-amber-600" :
+                      "text-slate-500"
+                    )}>
+                      {medicinesOnShelf.length} medicine{medicinesOnShelf.length !== 1 ? 's' : ''} in storage
+                      {expiredCount > 0 && (
+                        <span className="ml-2 font-bold">• {expiredCount} EXPIRED</span>
+                      )}
+                      {expiringCount > 0 && (
+                        <span className="ml-2 font-bold">• {expiringCount} EXPIRING</span>
+                      )}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <Package size={20} className={cn(
+                      expiredCount > 0 ? "text-red-500" :
+                      expiringCount > 0 ? "text-amber-500" :
+                      "text-slate-400"
+                    )} />
+                    {(expiredCount > 0 || expiringCount > 0) && (
+                      <AlertCircle size={16} className={cn(
+                        expiredCount > 0 ? "text-red-500" : "text-amber-500"
+                      )} />
+                    )}
+                  </div>
+                </div>
+
+                {/* Medicines on this shelf */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-4">
+                  {sortedMedicinesOnShelf.map((med) => {
+                    const totalQty = getTotalQuantity(med.batches);
+                    const earliestExpiry = getEarliestExpiryDate(med.batches);
+                    const isExp = earliestExpiry ? isExpired(earliestExpiry) : false;
+                    const isWarning = earliestExpiry ? isExpiryWarning(earliestExpiry, 14) : false;
+                    const daysUntilExpiry = earliestExpiry ? getDaysUntilExpiry(earliestExpiry) : null;
 
                     return (
                       <motion.div
                         layout
                         key={med.id}
-                        initial={{ opacity: 0, y: 20 }}
-                        animate={{ opacity: 1, y: 0 }}
+                        initial={{ opacity: 0, x: -10 }}
+                        animate={{ opacity: 1, x: 0 }}
                         exit={{ opacity: 0, scale: 0.9 }}
                         onClick={() => setSelectedMedicine(med.id)}
                         className={cn(
-                          "group bg-white rounded-3xl p-6 border-2 shadow-sm relative overflow-hidden flex flex-col gap-6 hover:shadow-xl hover:scale-[1.02] transition-all duration-300 cursor-pointer",
+                          "group bg-white rounded-2xl p-5 border-2 shadow-sm relative overflow-hidden flex flex-col gap-5 hover:shadow-lg hover:scale-[1.02] transition-all duration-300 cursor-pointer",
                           med.status === 'CRITICAL' ? "border-error/20" :
                           med.status === 'LOW' ? "border-amber-200" :
                           med.status === 'EXPIRED' ? "border-red-200" :
-                          "border-white"
+                          "border-slate-100"
                         )}
                       >
-                {/* Highlight bar */}
-                <div className={cn(
-                  "absolute top-0 left-0 right-0 h-1.5",
-                  med.status === 'CRITICAL' ? "bg-error" :
-                  med.status === 'LOW' ? "bg-amber-400" :
-                  med.status === 'EXPIRED' ? "bg-red-500" :
-                  "bg-secondary"
-                )} />
+                        <div className={cn(
+                          "absolute top-0 left-0 right-0 h-1",
+                          med.status === 'CRITICAL' ? "bg-error" :
+                          med.status === 'LOW' ? "bg-amber-400" :
+                          med.status === 'EXPIRED' ? "bg-red-500" :
+                          "bg-secondary"
+                        )} />
 
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <span className="font-mono text-[10px] font-bold text-slate-400 uppercase tracking-widest">{med.shelfId}</span>
-                    <div className={cn(
-                      "flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider w-fit",
-                      med.status === 'CRITICAL' ? "bg-error/10 text-error" :
-                      med.status === 'LOW' ? "bg-amber-100 text-amber-700" :
-                      med.status === 'EXPIRED' ? "bg-red-100 text-red-700" :
-                      "bg-secondary/10 text-secondary"
-                    )}>
-                      {med.status === 'CRITICAL' && <AlertCircle size={12} />}
-                      {med.status === 'LOW' && <Info size={12} />}
-                      {med.status === 'EXPIRED' && <AlertCircle size={12} />}
-                      {med.status === 'NORMAL' && <CheckCircle2 size={12} />}
-                      {med.status}
-                    </div>
-                  </div>
-                  <button className="text-slate-300 hover:text-slate-600">
-                    <MoreVertical size={20} />
-                  </button>
-                </div>
+                        <div className="flex justify-between items-start">
+                          <div className="space-y-1 flex-1">
+                            <h4 className="font-display text-lg font-bold text-slate-800">{med.name}</h4>
+                            <div className={cn(
+                              "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider w-fit",
+                              med.status === 'CRITICAL' ? "bg-error/10 text-error" :
+                              med.status === 'LOW' ? "bg-amber-100 text-amber-700" :
+                              med.status === 'EXPIRED' ? "bg-red-100 text-red-700" :
+                              "bg-secondary/10 text-secondary"
+                            )}>
+                              {med.status === 'CRITICAL' && <AlertCircle size={10} />}
+                              {med.status === 'LOW' && <Info size={10} />}
+                              {med.status === 'EXPIRED' && <AlertCircle size={10} />}
+                              {med.status === 'NORMAL' && <CheckCircle2 size={10} />}
+                              {med.status}
+                            </div>
+                          </div>
+                        </div>
 
-                <div className="flex-1">
-                  <h4 className="font-display text-2xl font-bold text-slate-800 leading-tight mb-1">{med.name}</h4>
-                  <p className="text-xs font-medium text-slate-400">{med.description}</p>
-                </div>
+                        <div className="space-y-2.5">
+                          <div className="flex justify-between items-end">
+                            <span className={cn(
+                              "text-base font-bold font-display",
+                              med.status === 'CRITICAL' ? "text-error" : "text-slate-900"
+                            )}>
+                              {totalQty} units
+                            </span>
+                            <span className="text-[9px] font-bold text-slate-400 uppercase">{med.capacity} cap</span>
+                          </div>
+                          <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
+                            <motion.div 
+                              initial={{ width: 0 }}
+                              animate={{ width: `${(totalQty / med.capacity) * 100}%` }}
+                              className={cn(
+                                "h-full rounded-full",
+                                med.status === 'CRITICAL' ? "bg-error shadow-[0_0_6px_rgba(239,68,68,0.5)]" :
+                                med.status === 'LOW' ? "bg-amber-400" :
+                                med.status === 'EXPIRED' ? "bg-red-500" :
+                                "bg-secondary"
+                              )}
+                            />
+                          </div>
+                        </div>
 
-                <div className="space-y-3">
-                  <div className="flex justify-between items-end">
-                    <span className={cn(
-                      "text-lg font-bold font-display",
-                      med.status === 'CRITICAL' ? "text-error" : "text-slate-900"
-                    )}>
-                      {totalQty} units
-                    </span>
-                    <span className="text-[10px] font-bold text-slate-400 uppercase">{med.capacity} capacity</span>
-                  </div>
-                  <div className="w-full h-2.5 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(totalQty / med.capacity) * 100}%` }}
-                      className={cn(
-                        "h-full rounded-full transition-colors duration-500",
-                        med.status === 'CRITICAL' ? "bg-error shadow-[0_0_10px_rgba(239,68,68,0.5)]" :
-                        med.status === 'LOW' ? "bg-amber-400" :
-                        med.status === 'EXPIRED' ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" :
-                        "bg-secondary"
-                      )}
-                    />
-                  </div>
-                </div>
+                        {earliestExpiry && (
+                          <div className={cn(
+                            "p-2.5 rounded-lg text-xs font-medium flex items-center gap-2",
+                            isExp ? "bg-red-50 text-red-700 border border-red-200" :
+                            isWarning ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                            "bg-blue-50 text-blue-700 border border-blue-200"
+                          )}>
+                            {isExp && <AlertCircle size={11} />}
+                            {isWarning && <AlertCircle size={11} />}
+                            {!isExp && !isWarning && <CheckCircle2 size={11} />}
+                            <span>
+                              {isExp ? 'EXPIRED' : isWarning ? `${daysUntilExpiry}d left` : `${formatExpiryDate(earliestExpiry)}`}
+                            </span>
+                          </div>
+                        )}
 
-                {/* Expiry Info */}
-                {earliestExpiry && (
-                  <div className={cn(
-                    "p-3 rounded-lg text-xs font-medium flex items-center gap-2",
-                    isExp ? "bg-red-50 text-red-700 border border-red-200" :
-                    isWarning ? "bg-amber-50 text-amber-700 border border-amber-200" :
-                    "bg-blue-50 text-blue-700 border border-blue-200"
-                  )}>
-                    {isExp && <AlertCircle size={12} />}
-                    {isWarning && <AlertCircle size={12} />}
-                    {!isExp && !isWarning && <CheckCircle2 size={12} />}
-                    <span>
-                      {isExp ? 'EXPIRED' : isWarning ? `Expires in ${daysUntilExpiry} days` : `Expires ${formatExpiryDate(earliestExpiry)}`}
-                    </span>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-4 border-t border-slate-50">
-                  <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
-                    <Wifi size={12} />
-                    SYNC: LIVE
-                  </div>
-                  <button onClick={() => setSelectedMedicine(med.id)} className="text-slate-400 hover:text-primary text-xs font-bold uppercase transition-colors">
-                    View Details
-                  </button>
-                </div>
+                        <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
+                          <span className="text-[9px] font-bold text-slate-400 uppercase">{med.batches.length} batch{med.batches.length !== 1 ? 'es' : ''}</span>
+                          <button onClick={(e) => { e.stopPropagation(); setSelectedMedicine(med.id); }} className="ml-auto text-slate-400 hover:text-primary text-xs font-bold transition-colors">
+                            View
+                          </button>
+                        </div>
                       </motion.div>
                     );
                   })}
-              </div>
-            </motion.section>
-          ))}
+                </div>
+              </motion.div>
+            );
+          })}
         </AnimatePresence>
       </div>
 
@@ -272,14 +324,6 @@ export default function Inventory() {
       <MedicineDetailsModal
         medicine={selectedMedicine ? medicines.find(m => m.id === selectedMedicine) || null : null}
         onClose={() => setSelectedMedicine(null)}
-      />
-
-      {/* Shelf Details Modal */}
-      <ShelfDetailsModal
-        shelfId={selectedShelf}
-        medicines={medicines}
-        onClose={() => setSelectedShelf(null)}
-        onMedicineClick={(medicineId) => setSelectedMedicine(medicineId)}
       />
     </div>
   );

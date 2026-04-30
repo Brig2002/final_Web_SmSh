@@ -92,7 +92,8 @@ const INITIAL_MEDICINES: Medicine[] = [
     sku: 'OME-020-CAP', 
     description: 'Capsules • 30ct bottles', 
     batches: [
-      { batchId: 'BATCH-008', quantity: 110, expiryDate: '2025-01-10', manufacturingDate: '2023-01-10' },
+      { batchId: 'BATCH-008', quantity: 60, expiryDate: '2026-05-12', manufacturingDate: '2025-05-12' },
+      { batchId: 'BATCH-009', quantity: 50, expiryDate: '2026-09-18', manufacturingDate: '2025-09-18' },
     ],
     capacity: 150, 
     shelfId: 'SHF-B112', 
