@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User, Medicine, Prescription, SystemAlert, UserRole, StockStatus, MedicineAllocation, MedicineBatch } from '../types';
-import { getTotalQuantity, getEarliestExpiryDate, calculateMedicineStatus, isExpired, isExpiryWarning, getDaysUntilExpiry } from '../lib/utils';
+import { User, Medicine, Prescription, SystemAlert, UserRole, StockStatus, MedicineAllocation } from '../types';
+import { getDaysUntilExpiry, isExpired, isExpiryWarning } from '../lib/utils';
 
 interface AppState {
   user: User | null;
@@ -28,23 +28,40 @@ const INITIAL_MEDICINES: Medicine[] = [
     id: '1', 
     name: 'Amoxicillin 500mg', 
     sku: 'AMX-500-CAP', 
+    barcode: '5901234100001', 
     description: 'Capsules • 30ct bottles', 
-    batches: [
-      { batchId: 'BATCH-001', quantity: 8, expiryDate: '2025-10-15', manufacturingDate: '2024-10-15' },
-      { batchId: 'BATCH-002', quantity: 4, expiryDate: '2026-02-20', manufacturingDate: '2024-08-20' },
-    ],
+    batchId: 'BATCH-001',
+    quantity: 8,
+    expiryDate: '2025-10-15',
+    manufacturingDate: '2024-10-15',
     capacity: 100, 
     shelfId: 'SHF-A104', 
     status: 'CRITICAL' 
   },
   { 
+    id: '1a', 
+    name: 'Amoxicillin 500mg', 
+    sku: 'AMX-500-CAP', 
+    barcode: '5901234100002', 
+    description: 'Capsules • 30ct bottles', 
+    batchId: 'BATCH-002',
+    quantity: 4,
+    expiryDate: '2026-02-20',
+    manufacturingDate: '2024-08-20',
+    capacity: 100, 
+    shelfId: 'SHF-A104', 
+    status: 'NORMAL' 
+  },
+  { 
     id: '2', 
     name: 'Lisinopril 10mg', 
     sku: 'LIS-010-TAB', 
+    barcode: '5901234100018', 
     description: 'Tablets • 90ct bottles', 
-    batches: [
-      { batchId: 'BATCH-003', quantity: 145, expiryDate: '2026-11-30', manufacturingDate: '2024-11-30' },
-    ],
+    batchId: 'BATCH-003',
+    quantity: 145,
+    expiryDate: '2026-11-30',
+    manufacturingDate: '2024-11-30',
     capacity: 150, 
     shelfId: 'SHF-B202', 
     status: 'NORMAL' 
@@ -53,23 +70,600 @@ const INITIAL_MEDICINES: Medicine[] = [
     id: '3', 
     name: 'Atorvastatin 20mg', 
     sku: 'ATO-020-TAB', 
+    barcode: '5901234100025', 
     description: 'Tablets • 30ct bottles', 
-    batches: [
-      { batchId: 'BATCH-004', quantity: 30, expiryDate: '2026-05-12', manufacturingDate: '2024-05-12' },
-      { batchId: 'BATCH-005', quantity: 15, expiryDate: '2028-05-12', manufacturingDate: '2024-05-12' },
-    ],
+    batchId: 'BATCH-004',
+    quantity: 30,
+    expiryDate: '2026-05-12',
+    manufacturingDate: '2024-05-12',
     capacity: 200, 
     shelfId: 'SHF-C018', 
-    status: 'LOW' 
+    status: 'NORMAL' 
+  },
+  { 
+    id: '3a', 
+    name: 'Atorvastatin 20mg', 
+    sku: 'ATO-020-TAB', 
+    barcode: '5901234100032', 
+    description: 'Tablets • 30ct bottles', 
+    batchId: 'BATCH-005',
+    quantity: 15,
+    expiryDate: '2028-05-12',
+    manufacturingDate: '2024-05-12',
+    capacity: 200, 
+    shelfId: 'SHF-C018', 
+    status: 'NORMAL' 
   },
   { 
     id: '4', 
     name: 'Metformin 850mg', 
     sku: 'MET-850-200', 
+    barcode: '5901234006001', 
     description: 'Tablets • 60ct bottles', 
-    batches: [
-      { batchId: 'BATCH-006', quantity: 88, expiryDate: '2026-02-28', manufacturingDate: '2023-02-28' },
-    ],
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_1', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006002', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_2', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006003', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_3', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006004', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_4', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006005', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_5', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006006', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_6', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006007', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_7', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006008', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_8', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006009', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_9', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006010', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_10', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006011', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_11', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006012', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_12', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006013', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_13', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006014', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_14', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006015', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_15', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006016', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_16', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006017', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_17', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006018', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_18', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006019', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_19', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006020', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_20', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006021', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_21', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006022', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_22', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006023', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_23', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006024', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_24', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006025', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_25', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006026', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_26', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006027', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_27', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006028', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_28', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006029', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_29', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006030', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_30', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006031', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_31', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006032', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_32', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006033', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_33', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006034', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_34', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006035', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_35', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006036', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_36', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006037', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_37', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006038', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4_38', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234006039', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-006',
+    quantity: 1,
+    expiryDate: '2026-02-28',
+    manufacturingDate: '2023-02-28',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'EXPIRED' 
+  },
+  { 
+    id: '4a', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234123464', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-007',
+    quantity: 35,
+    expiryDate: '2026-05-15',
+    manufacturingDate: '2023-05-15',
+    capacity: 120, 
+    shelfId: 'SHF-A090', 
+    status: 'LOW' 
+  },
+  { 
+    id: '4b', 
+    name: 'Metformin 850mg', 
+    sku: 'MET-850-200', 
+    barcode: '5901234123471', 
+    description: 'Tablets • 60ct bottles', 
+    batchId: 'BATCH-008',
+    quantity: 13,
+    expiryDate: '2026-10-28',
+    manufacturingDate: '2024-04-28',
     capacity: 120, 
     shelfId: 'SHF-A090', 
     status: 'NORMAL' 
@@ -78,10 +672,12 @@ const INITIAL_MEDICINES: Medicine[] = [
     id: '5', 
     name: 'Albuterol Inhaler', 
     sku: 'ALB-INH-085', 
+    barcode: '5901234567890', 
     description: 'Aerosol • 8.5g', 
-    batches: [
-      { batchId: 'BATCH-007', quantity: 3, expiryDate: '2025-08-20', manufacturingDate: '2023-08-20' },
-    ],
+    batchId: 'BATCH-009',
+    quantity: 3,
+    expiryDate: '2025-08-20',
+    manufacturingDate: '2023-08-20',
     capacity: 50, 
     shelfId: 'SHF-D405', 
     status: 'CRITICAL' 
@@ -90,11 +686,26 @@ const INITIAL_MEDICINES: Medicine[] = [
     id: '6', 
     name: 'Omeprazole 20mg', 
     sku: 'OME-020-CAP', 
+    barcode: '5901234567907', 
     description: 'Capsules • 30ct bottles', 
-    batches: [
-      { batchId: 'BATCH-008', quantity: 60, expiryDate: '2026-05-12', manufacturingDate: '2025-05-12' },
-      { batchId: 'BATCH-009', quantity: 50, expiryDate: '2026-09-18', manufacturingDate: '2025-09-18' },
-    ],
+    batchId: 'BATCH-010',
+    quantity: 60,
+    expiryDate: '2026-05-12',
+    manufacturingDate: '2025-05-12',
+    capacity: 150, 
+    shelfId: 'SHF-B112', 
+    status: 'NORMAL' 
+  },
+  { 
+    id: '6a', 
+    name: 'Omeprazole 20mg', 
+    sku: 'OME-020-CAP', 
+    barcode: '5901234567914', 
+    description: 'Capsules • 30ct bottles', 
+    batchId: 'BATCH-011',
+    quantity: 50,
+    expiryDate: '2026-09-18',
+    manufacturingDate: '2025-09-18',
     capacity: 150, 
     shelfId: 'SHF-B112', 
     status: 'NORMAL' 
@@ -207,35 +818,26 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   };
 
   const removeQuantityFromMedicine = (medicine: Medicine, quantityToRemove: number) => {
-    const sortedBatches = [...medicine.batches].sort((a, b) => 
-      new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()
-    );
-
-    let remaining = quantityToRemove;
-    const updatedBatches: MedicineBatch[] = [];
-
-    for (const batch of sortedBatches) {
-      if (remaining <= 0) {
-        updatedBatches.push(batch);
-        continue;
-      }
-
-      if (batch.quantity <= remaining) {
-        remaining -= batch.quantity;
-        continue;
-      }
-
-      updatedBatches.push({ ...batch, quantity: batch.quantity - remaining });
-      remaining = 0;
+    // Simple flat structure: just reduce quantity
+    if (medicine.quantity < quantityToRemove) {
+      return null; // Not enough quantity
     }
 
-    if (remaining > 0) {
-      return null;
+    const newQuantity = medicine.quantity - quantityToRemove;
+    
+    // Calculate new status
+    let newStatus: StockStatus = 'NORMAL';
+    if (isExpired(medicine.expiryDate)) {
+      newStatus = 'EXPIRED';
+    } else if (newQuantity <= 5) {
+      newStatus = 'CRITICAL';
+    } else if (newQuantity <= 15) {
+      newStatus = 'LOW';
     }
 
     return {
-      batches: updatedBatches,
-      status: calculateMedicineStatus(updatedBatches, medicine.capacity),
+      quantity: newQuantity,
+      status: newStatus,
     };
   };
 
@@ -279,11 +881,8 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       const medicine = medicines.find(currentMedicine => currentMedicine.id === allocation.medicineId);
       if (!medicine) return;
 
-      const earliestBatch = [...medicine.batches].sort((a, b) => 
-        new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime()
-      )[0];
-
-      if (earliestBatch && isExpired(earliestBatch.expiryDate)) {
+      // Check if expired for flat structure
+      if (isExpired(medicine.expiryDate)) {
         return;
       }
 
@@ -333,27 +932,20 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
   const updateInventory = (id: string, newQuantity: number) => {
     setMedicines(prev => prev.map(m => {
       if (m.id === id) {
-        // Add to the latest batch (or create new one)
-        let batches = [...m.batches];
-        if (batches.length === 0) {
-          // Create default batch if none exists
-          batches = [{
-            batchId: `BATCH-${Date.now()}`,
-            quantity: newQuantity,
-            expiryDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-          }];
-        } else {
-          // Add to the latest batch
-          const latestBatch = batches[batches.length - 1];
-          batches = batches.map((batch, idx) => 
-            idx === batches.length - 1 
-              ? { ...batch, quantity: newQuantity } 
-              : batch
-          );
+        // Update quantity directly for flat structure
+        const updatedQuantity = newQuantity;
+        
+        // Determine status based on quantity
+        let status: 'NORMAL' | 'LOW' | 'CRITICAL' | 'EXPIRED' = 'NORMAL';
+        if (isExpired(m.expiryDate)) {
+          status = 'EXPIRED';
+        } else if (updatedQuantity === 0) {
+          status = 'CRITICAL';
+        } else if (updatedQuantity < m.capacity * 0.2) {
+          status = 'LOW';
         }
-
-        const status = calculateMedicineStatus(batches, m.capacity);
-        return { ...m, batches, status };
+        
+        return { ...m, quantity: updatedQuantity, status };
       }
       return m;
     }));
@@ -367,48 +959,46 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     const now = new Date().toISOString().split('T')[0];
 
     medicines.forEach(medicine => {
-      medicine.batches.forEach(batch => {
-        const daysUntilExpiry = getDaysUntilExpiry(batch.expiryDate);
+      const daysUntilExpiry = getDaysUntilExpiry(medicine.expiryDate);
+      
+      // Check if expired
+      if (isExpired(medicine.expiryDate)) {
+        const alertId = `expiry-${medicine.id}`;
+        const existingAlert = alerts.find(a => a.id === alertId);
         
-        // Check if expired
-        if (isExpired(batch.expiryDate)) {
-          const alertId = `expiry-${medicine.id}-${batch.batchId}`;
-          const existingAlert = alerts.find(a => a.id === alertId);
-          
-          if (!existingAlert) {
-            newAlerts.push({
-              id: alertId,
-              type: 'EXPIRY',
-              message: `${medicine.name} - Batch ${batch.batchId} EXPIRED`,
-              details: `Batch ${batch.batchId} of ${medicine.name} (${medicine.sku}) expired on ${batch.expiryDate}. Quantity: ${batch.quantity} units. Location: ${medicine.shelfId}`,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              resolved: false,
-              severity: 'HIGH',
-              sku: medicine.sku,
-              location: medicine.shelfId,
-            });
-          }
+        if (!existingAlert) {
+          newAlerts.push({
+            id: alertId,
+            type: 'EXPIRY',
+            message: `${medicine.name} - Batch ${medicine.batchId} EXPIRED`,
+            details: `Batch ${medicine.batchId} of ${medicine.name} (${medicine.sku}) expired on ${medicine.expiryDate}. Quantity: ${medicine.quantity} units. Location: ${medicine.shelfId}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            resolved: false,
+            severity: 'HIGH',
+            sku: medicine.sku,
+            location: medicine.shelfId,
+          });
         }
-        // Check if expiring within 14 days
-        else if (isExpiryWarning(batch.expiryDate, 14)) {
-          const alertId = `expiry-warning-${medicine.id}-${batch.batchId}`;
-          const existingAlert = alerts.find(a => a.id === alertId);
-          
-          if (!existingAlert) {
-            newAlerts.push({
-              id: alertId,
-              type: 'EXPIRY',
-              message: `${medicine.name} - Batch ${batch.batchId} Expiring Soon`,
-              details: `Batch ${batch.batchId} of ${medicine.name} (${medicine.sku}) will expire in ${daysUntilExpiry} days on ${batch.expiryDate}. Quantity: ${batch.quantity} units. Location: ${medicine.shelfId}`,
-              timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-              resolved: false,
-              severity: 'MEDIUM',
-              sku: medicine.sku,
-              location: medicine.shelfId,
-            });
-          }
+      }
+      // Check if expiring within 14 days
+      else if (isExpiryWarning(medicine.expiryDate, 14)) {
+        const alertId = `expiry-warning-${medicine.id}`;
+        const existingAlert = alerts.find(a => a.id === alertId);
+        
+        if (!existingAlert) {
+          newAlerts.push({
+            id: alertId,
+            type: 'EXPIRY',
+            message: `${medicine.name} - Batch ${medicine.batchId} Expiring Soon`,
+            details: `Batch ${medicine.batchId} of ${medicine.name} (${medicine.sku}) will expire in ${daysUntilExpiry} days on ${medicine.expiryDate}. Quantity: ${medicine.quantity} units. Location: ${medicine.shelfId}`,
+            timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+            resolved: false,
+            severity: 'MEDIUM',
+            sku: medicine.sku,
+            location: medicine.shelfId,
+          });
         }
-      });
+      }
     });
 
     if (newAlerts.length > 0) {
@@ -422,8 +1012,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
       if (Math.random() > 0.7) {
         const randomIndex = Math.floor(Math.random() * medicines.length);
         const medicine = medicines[randomIndex];
-        const totalQty = getTotalQuantity(medicine.batches);
-        if (totalQty > 0) {
+        if (medicine.quantity > 0) {
           recordInventoryRemoval(medicine.id, 1, { prescriptionId: 'SIMULATED-AUDIT', reason: 'Inventory simulation' });
         }
       }

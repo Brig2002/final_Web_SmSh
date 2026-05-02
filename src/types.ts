@@ -10,19 +10,16 @@ export interface User {
 
 export type StockStatus = 'NORMAL' | 'LOW' | 'CRITICAL' | 'EXPIRED';
 
-export interface MedicineBatch {
-  batchId: string;
-  quantity: number;
-  expiryDate: string;
-  manufacturingDate?: string;
-}
-
 export interface Medicine {
   id: string;
   name: string;
   sku: string;
+  barcode?: string;
   description: string;
-  batches: MedicineBatch[];
+  batchId: string;
+  quantity: number;
+  expiryDate: string;
+  manufacturingDate?: string;
   capacity: number;
   shelfId: string;
   status: StockStatus;

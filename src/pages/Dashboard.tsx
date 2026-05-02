@@ -23,7 +23,6 @@ import {
   Cell
 } from 'recharts';
 import { cn } from '../lib/utils';
-import { getTotalQuantity } from '../lib/utils';
 import { useNavigate } from 'react-router-dom';
 import ExpiryReport from '../components/ExpiryReport';
 
@@ -267,13 +266,13 @@ export default function Dashboard() {
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">SKU: {med.sku}</p>
                     </div>
                     <span className={cn("text-xs font-bold", med.status === 'NORMAL' ? 'text-slate-900' : 'text-error')}>
-                      {getTotalQuantity(med.batches)} Units
+                      {med.quantity} Units
                     </span>
                   </div>
                     <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
                       <div 
                         className={cn("h-full rounded-full transition-all duration-1000", med.status === 'NORMAL' ? 'bg-primary' : 'bg-error')}
-                        style={{ width: `${(getTotalQuantity(med.batches) / med.capacity) * 100}%` }}
+                        style={{ width: `${(med.quantity / med.capacity) * 100}%` }}
                       />
                   </div>
                 </div>

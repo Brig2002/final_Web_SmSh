@@ -11,7 +11,8 @@ import {
   HelpCircle, 
   LogOut,
   Plus,
-  Hospital
+  Hospital,
+  Barcode
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 
@@ -29,6 +30,10 @@ export default function Layout() {
     { name: 'Prescriptions', icon: FileText, path: '/prescriptions' },
     { name: 'Alerts', icon: Bell, path: '/alerts', badge: activeAlerts },
   ];
+
+  if (user.role === 'PHARMACIST') {
+    navItems.push({ name: 'Barcode Scanner', icon: Barcode, path: '/scanner' });
+  }
 
   if (user.role === 'ADMIN') {
     navItems.push({ name: 'Users', icon: UsersIcon, path: '/users' });

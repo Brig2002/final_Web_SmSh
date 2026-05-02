@@ -12,6 +12,7 @@ import Inventory from './pages/Inventory';
 import Prescriptions from './pages/Prescriptions';
 import Alerts from './pages/Alerts';
 import Users from './pages/Users';
+import BarcodeScanner from './pages/BarcodeScanner';
 import Layout from './components/Layout';
 
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -33,6 +34,7 @@ export default function App() {
             <Route path="prescriptions" element={<Prescriptions />} />
             <Route path="alerts" element={<Alerts />} />
             <Route path="users" element={<Users />} />
+            <Route path="scanner" element={<BarcodeScanner />} />
           </Route>
         </Routes>
       </AppProvider>

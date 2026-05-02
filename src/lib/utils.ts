@@ -1,6 +1,6 @@
 import {clsx, type ClassValue} from 'clsx';
 import {twMerge} from 'tailwind-merge';
-import { MedicineBatch, StockStatus } from '../types';
+import { StockStatus } from '../types';
 
 /**
  * Utility for merging tailwind classes
@@ -45,43 +45,6 @@ export function formatExpiryDate(date: string): string {
     month: 'long',
     day: 'numeric',
   });
-}
-
-/**
- * Get total quantity across all batches
- */
-export function getTotalQuantity(batches: MedicineBatch[]): number {
-  return batches.reduce((sum, batch) => sum + batch.quantity, 0);
-}
-
-/**
- * Get the earliest expiry date across all batches (FIFO reference)
- */
-export function getEarliestExpiryDate(batches: MedicineBatch[]): string | null {
-  if (batches.length === 0) return null;
-  return batches.reduce((earliest, batch) => {
-    return new Date(batch.expiryDate) < new Date(earliest.expiryDate)
-      ? batch
-      : earliest;
-  }).expiryDate;
-}
-
-/**
- * Calculate medicine status based on total quantity and earliest batch expiry
- */
-export function calculateMedicineStatus(batches: MedicineBatch[], capacity: number): StockStatus {
-  const totalQty = getTotalQuantity(batches);
-  const earliestExpiry = getEarliestExpiryDate(batches);
-
-  // Check if any batch is expired
-  if (earliestExpiry && isExpired(earliestExpiry)) {
-    return 'EXPIRED';
-  }
-
-  // Check quantity-based status
-  if (totalQty <= 5) return 'CRITICAL';
-  if (totalQty <= 15) return 'LOW';
-  return 'NORMAL';
 }
 
 /**

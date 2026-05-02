@@ -1,11 +1,10 @@
 import { Download, AlertCircle } from 'lucide-react';
-import { Medicine, MedicineBatch } from '../types';
+import { Medicine } from '../types';
 import { 
   getDaysUntilExpiry, 
   isExpired, 
   isExpiryWarning, 
-  formatExpiryDate,
-  getTotalQuantity 
+  formatExpiryDate
 } from '../lib/utils';
 import { cn } from '../lib/utils';
 
@@ -15,7 +14,7 @@ interface ExpiryReportProps {
 
 export default function ExpiryReport({ medicines }: ExpiryReportProps) {
   /**
-   * Flatten batches to individual rows for reporting
+   * Create individual rows from medicines (each medicine is now a single batch)
    */
   const getBatchRows = () => {
     const rows: Array<{
@@ -30,24 +29,22 @@ export default function ExpiryReport({ medicines }: ExpiryReportProps) {
     }> = [];
 
     medicines.forEach(med => {
-      med.batches.forEach(batch => {
-        const daysUntil = getDaysUntilExpiry(batch.expiryDate);
-        const status = isExpired(batch.expiryDate) 
-          ? 'EXPIRED' 
-          : isExpiryWarning(batch.expiryDate, 14)
-          ? 'EXPIRING'
-          : 'OK';
+      const daysUntil = getDaysUntilExpiry(med.expiryDate);
+      const status = isExpired(med.expiryDate) 
+        ? 'EXPIRED' 
+        : isExpiryWarning(med.expiryDate, 14)
+        ? 'EXPIRING'
+        : 'OK';
 
-        rows.push({
-          medicineName: med.name,
-          sku: med.sku,
-          batchId: batch.batchId,
-          quantity: batch.quantity,
-          expiryDate: batch.expiryDate,
-          daysUntilExpiry: daysUntil,
-          status,
-          location: med.shelfId,
-        });
+      rows.push({
+        medicineName: med.name,
+        sku: med.sku,
+        batchId: med.batchId,
+        quantity: med.quantity,
+        expiryDate: med.expiryDate,
+        daysUntilExpiry: daysUntil,
+        status,
+        location: med.shelfId,
       });
     });
 

@@ -5,18 +5,14 @@ import {
   CheckCircle2, 
   Info, 
   Clock,
-  ChevronRight, 
   Filter,
   Package,
-  History,
   MoreVertical
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { useState } from 'react';
 import { 
-  getTotalQuantity, 
-  getEarliestExpiryDate, 
   formatExpiryDate, 
   getDaysUntilExpiry,
   isExpired,
@@ -34,11 +30,10 @@ export default function Inventory() {
   // Filter medicines
   const filteredMedicines = medicines.filter(med => {
     if (filterType === 'expired') {
-      return med.status === 'EXPIRED';
+      return isExpired(med.expiryDate);
     }
     if (filterType === 'expiring') {
-      const earliestExpiry = getEarliestExpiryDate(med.batches);
-      return earliestExpiry && isExpiryWarning(earliestExpiry, 14);
+      return !isExpired(med.expiryDate) && isExpiryWarning(med.expiryDate, 14);
     }
     return true;
   });
@@ -49,14 +44,10 @@ export default function Inventory() {
       return a.name.localeCompare(b.name);
     }
     if (sortType === 'expiry') {
-      const aExpiry = getEarliestExpiryDate(a.batches);
-      const bExpiry = getEarliestExpiryDate(b.batches);
-      if (!aExpiry) return 1;
-      if (!bExpiry) return -1;
-      return new Date(aExpiry).getTime() - new Date(bExpiry).getTime();
+      return new Date(a.expiryDate).getTime() - new Date(b.expiryDate).getTime();
     }
     if (sortType === 'quantity') {
-      return getTotalQuantity(b.batches) - getTotalQuantity(a.batches);
+      return b.quantity - a.quantity;
     }
     return 0;
   });
@@ -126,38 +117,23 @@ export default function Inventory() {
           {sortedShelves.map((shelfId) => {
             const medicinesOnShelf = medicinesByShelf.get(shelfId) || [];
             
-            // Sort medicines within shelf by expiry status: expired > expiring > normal
+            // Sort medicines within shelf by expiry status
             const sortedMedicinesOnShelf = [...medicinesOnShelf].sort((a, b) => {
-              const aExpiry = getEarliestExpiryDate(a.batches);
-              const bExpiry = getEarliestExpiryDate(b.batches);
+              const aIsExpired = isExpired(a.expiryDate);
+              const bIsExpired = isExpired(b.expiryDate);
+              const aIsWarning = !aIsExpired && isExpiryWarning(a.expiryDate, 14);
+              const bIsWarning = !bIsExpired && isExpiryWarning(b.expiryDate, 14);
               
-              const aIsExpired = aExpiry ? isExpired(aExpiry) : false;
-              const bIsExpired = bExpiry ? isExpired(bExpiry) : false;
-              const aIsWarning = aExpiry ? isExpiryWarning(aExpiry, 14) : false;
-              const bIsWarning = bExpiry ? isExpiryWarning(bExpiry, 14) : false;
-              
-              // Expired first
               if (aIsExpired && !bIsExpired) return -1;
               if (!aIsExpired && bIsExpired) return 1;
-              
-              // Then expiring soon
               if (aIsWarning && !bIsWarning) return -1;
               if (!aIsWarning && bIsWarning) return 1;
-              
-              // Then by name
               return a.name.localeCompare(b.name);
             });
             
             // Count expired and expiring
-            const expiredCount = sortedMedicinesOnShelf.filter(med => {
-              const exp = getEarliestExpiryDate(med.batches);
-              return exp ? isExpired(exp) : false;
-            }).length;
-            
-            const expiringCount = sortedMedicinesOnShelf.filter(med => {
-              const exp = getEarliestExpiryDate(med.batches);
-              return exp && !isExpired(exp) && isExpiryWarning(exp, 14) ? true : false;
-            }).length;
+            const expiredCount = sortedMedicinesOnShelf.filter(med => isExpired(med.expiryDate)).length;
+            const expiringCount = sortedMedicinesOnShelf.filter(med => !isExpired(med.expiryDate) && isExpiryWarning(med.expiryDate, 14)).length;
 
             return (
               <motion.div
@@ -214,11 +190,9 @@ export default function Inventory() {
                 {/* Medicines on this shelf */}
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 ml-4">
                   {sortedMedicinesOnShelf.map((med) => {
-                    const totalQty = getTotalQuantity(med.batches);
-                    const earliestExpiry = getEarliestExpiryDate(med.batches);
-                    const isExp = earliestExpiry ? isExpired(earliestExpiry) : false;
-                    const isWarning = earliestExpiry ? isExpiryWarning(earliestExpiry, 14) : false;
-                    const daysUntilExpiry = earliestExpiry ? getDaysUntilExpiry(earliestExpiry) : null;
+                    const isExp = isExpired(med.expiryDate);
+                    const isWarning = !isExp && isExpiryWarning(med.expiryDate, 14);
+                    const daysUntilExpiry = getDaysUntilExpiry(med.expiryDate);
 
                     return (
                       <motion.div
@@ -269,14 +243,14 @@ export default function Inventory() {
                               "text-base font-bold font-display",
                               med.status === 'CRITICAL' ? "text-error" : "text-slate-900"
                             )}>
-                              {totalQty} units
+                              {med.quantity} units
                             </span>
                             <span className="text-[9px] font-bold text-slate-400 uppercase">{med.capacity} cap</span>
                           </div>
                           <div className="w-full h-2 bg-slate-50 rounded-full overflow-hidden border border-slate-100">
                             <motion.div 
                               initial={{ width: 0 }}
-                              animate={{ width: `${(totalQty / med.capacity) * 100}%` }}
+                              animate={{ width: `${(med.quantity / med.capacity) * 100}%` }}
                               className={cn(
                                 "h-full rounded-full",
                                 med.status === 'CRITICAL' ? "bg-error shadow-[0_0_6px_rgba(239,68,68,0.5)]" :
@@ -288,24 +262,22 @@ export default function Inventory() {
                           </div>
                         </div>
 
-                        {earliestExpiry && (
-                          <div className={cn(
-                            "p-2.5 rounded-lg text-xs font-medium flex items-center gap-2",
-                            isExp ? "bg-red-50 text-red-700 border border-red-200" :
-                            isWarning ? "bg-amber-50 text-amber-700 border border-amber-200" :
-                            "bg-blue-50 text-blue-700 border border-blue-200"
-                          )}>
-                            {isExp && <AlertCircle size={11} />}
-                            {isWarning && <AlertCircle size={11} />}
-                            {!isExp && !isWarning && <CheckCircle2 size={11} />}
-                            <span>
-                              {isExp ? 'EXPIRED' : isWarning ? `${daysUntilExpiry}d left` : `${formatExpiryDate(earliestExpiry)}`}
-                            </span>
-                          </div>
-                        )}
+                        <div className={cn(
+                          "p-2.5 rounded-lg text-xs font-medium flex items-center gap-2",
+                          isExp ? "bg-red-50 text-red-700 border border-red-200" :
+                          isWarning ? "bg-amber-50 text-amber-700 border border-amber-200" :
+                          "bg-blue-50 text-blue-700 border border-blue-200"
+                        )}>
+                          {isExp && <AlertCircle size={11} />}
+                          {isWarning && <AlertCircle size={11} />}
+                          {!isExp && !isWarning && <CheckCircle2 size={11} />}
+                          <span>
+                            {isExp ? 'EXPIRED' : isWarning ? `${daysUntilExpiry}d left` : `${formatExpiryDate(med.expiryDate)}`}
+                          </span>
+                        </div>
 
                         <div className="flex items-center gap-2 pt-2 border-t border-slate-100">
-                          <span className="text-[9px] font-bold text-slate-400 uppercase">{med.batches.length} batch{med.batches.length !== 1 ? 'es' : ''}</span>
+                          <span className="text-[9px] font-bold text-slate-400 uppercase font-mono">{med.batchId}</span>
                           <button onClick={(e) => { e.stopPropagation(); setSelectedMedicine(med.id); }} className="ml-auto text-slate-400 hover:text-primary text-xs font-bold transition-colors">
                             View
                           </button>
@@ -320,6 +292,37 @@ export default function Inventory() {
         </AnimatePresence>
       </div>
 
+      {/* All Medicines — Batch IDs */}
+      <div className="mt-8">
+        <h3 className="font-display text-lg font-bold text-slate-900 mb-3">All Medicines — Batch IDs</h3>
+        <div className="overflow-x-auto bg-white rounded-2xl border p-4">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-200">
+                <th className="text-left p-3 font-bold text-slate-600 uppercase tracking-widest text-xs">Medicine</th>
+                <th className="text-left p-3 font-bold text-slate-600 uppercase tracking-widest text-xs">SKU</th>
+                <th className="text-left p-3 font-bold text-slate-600 uppercase tracking-widest text-xs">Batch ID</th>
+                <th className="text-left p-3 font-bold text-slate-600 uppercase tracking-widest text-xs">Quantity</th>
+                <th className="text-left p-3 font-bold text-slate-600 uppercase tracking-widest text-xs">Expiry</th>
+                <th className="text-left p-3 font-bold text-slate-600 uppercase tracking-widest text-xs">Shelf</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedMedicines.map((med) => (
+                <tr key={med.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  <td className="p-3 font-bold text-slate-800">{med.name}</td>
+                  <td className="p-3 font-mono text-xs text-slate-600">{med.sku}</td>
+                  <td className="p-3 font-mono font-bold text-slate-700">{med.batchId}</td>
+                  <td className="p-3 text-slate-700">{med.quantity} units</td>
+                  <td className="p-3 text-slate-700">{formatExpiryDate(med.expiryDate)}</td>
+                  <td className="p-3 text-slate-700">{med.shelfId}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
       {/* Medicine Details Modal */}
       <MedicineDetailsModal
         medicine={selectedMedicine ? medicines.find(m => m.id === selectedMedicine) || null : null}
@@ -327,4 +330,4 @@ export default function Inventory() {
       />
     </div>
   );
-}
+} 
